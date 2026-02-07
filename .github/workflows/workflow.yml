@@ -2,8 +2,8 @@ name: IG Tracker
 
 on:
   schedule:
-    - cron: '0 0 * * *'   # раз в день в 00:00 UTC
-  workflow_dispatch:
+    - cron: '0 0 * * *'   # каждый день в 00:00 UTC
+  workflow_dispatch:       # возможность запуска вручную
 
 jobs:
   run-script:

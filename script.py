@@ -1,91 +1,95 @@
 import requests
 import json
 import os
-from time import sleep
+from datetime import datetime
 
-# --- Настройки ---
-USERNAME = "1546006357"  # Instagram user ID (не ник, нужен numeric ID)
+# --- настройки ---
+INSTAGRAM_USER_ID = os.getenv("1546006357")
 TELEGRAM_TOKEN = os.getenv("8217935040:AAEHAORrnUsJyTgQrCVHevru6ZVwOz2nIxs")
-CHAT_ID = os.getenv("1546006357")
+CHAT_ID = os.getenv("8450180980")
 
-FOLLOWING_FILE = "following.json"
 FOLLOWERS_FILE = "followers.json"
+FOLLOWING_FILE = "following.json"
 
-HEADERS = {
-    "User-Agent": "Instagram 155.0.0.37.107"
-}
 
-# --- Функции ---
+# --- telegram ---
 def send_telegram(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    try:
-        resp = requests.post(url, data={"chat_id": CHAT_ID, "text": message})
-        print("Telegram status:", resp.status_code)
-    except Exception as e:
-        print("Ошибка отправки Telegram:", e)
+    requests.post(url, data={"chat_id": CHAT_ID, "text": message})
 
-def load_data(filename):
-    if not os.path.exists(filename):
+
+# --- instagram ---
+def get_followers(user_id):
+    url = f"https://i.instagram.com/api/v1/friendships/{user_id}/followers/"
+    headers = {"User-Agent": "Instagram 155.0.0.37.107"}
+    r = requests.get(url, headers=headers)
+    if r.status_code != 200:
         return []
-    with open(filename, "r") as f:
-        return json.load(f)
+    return [u["username"] for u in r.json().get("users", [])]
 
-def save_data(filename, data):
-    with open(filename, "w") as f:
-        json.dump(data, f)
 
 def get_following(user_id):
     url = f"https://i.instagram.com/api/v1/friendships/{user_id}/following/"
-    r = requests.get(url, headers=HEADERS)
+    headers = {"User-Agent": "Instagram 155.0.0.37.107"}
+    r = requests.get(url, headers=headers)
     if r.status_code != 200:
-        print("Ошибка получения following:", r.status_code)
         return []
-    data = r.json()
-    return [u["username"] for u in data.get("users", [])]
+    return [u["username"] for u in r.json().get("users", [])]
 
-def get_followers(user_id):
-    url = f"https://i.instagram.com/api/v1/friendships/{user_id}/followers/"
-    r = requests.get(url, headers=HEADERS)
-    if r.status_code != 200:
-        print("Ошибка получения followers:", r.status_code)
+
+# --- файлы ---
+def load_file(path):
+    if not os.path.exists(path):
         return []
-    data = r.json()
-    return [u["username"] for u in data.get("users", [])]
+    with open(path, "r") as f:
+        return json.load(f)
 
-# --- Основная логика ---
+
+def save_file(path, data):
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+
+
+# --- логика ---
 def main():
-    old_following = load_data(FOLLOWING_FILE)
-    old_followers = load_data(FOLLOWERS_FILE)
+    old_followers = load_file(FOLLOWERS_FILE)
+    old_following = load_file(FOLLOWING_FILE)
 
-    current_following = get_following(USERNAME)
-    current_followers = get_followers(USERNAME)
-
-    # --- Проверка новых подписок ---
-    new_following = list(set(current_following) - set(old_following))
-    unfollowed = list(set(old_following) - set(current_following))
-
-    # --- Проверка новых подписчиков ---
-    new_followers = list(set(current_followers) - set(old_followers))
-    lost_followers = list(set(old_followers) - set(current_followers))
+    followers = get_followers(INSTAGRAM_USER_ID)
+    following = get_following(INSTAGRAM_USER_ID)
 
     messages = []
 
-    if new_following:
-        messages.append("➡️ Новые подписки:\n" + "\n".join(new_following))
-    if unfollowed:
-        messages.append("⬅️ Отписались от вас:\n" + "\n".join(unfollowed))
+    # новые подписчики
+    new_followers = list(set(followers) - set(old_followers))
     if new_followers:
-        messages.append("🆕 Новые подписчики:\n" + "\n".join(new_followers))
+        messages.append("🟢 Новые подписчики:\n" + "\n".join(new_followers))
+
+    # отписались
+    lost_followers = list(set(old_followers) - set(followers))
     if lost_followers:
-        messages.append("❌ Потерянные подписчики:\n" + "\n".join(lost_followers))
+        messages.append("🔴 Отписались:\n" + "\n".join(lost_followers))
 
+    # на кого подписался
+    new_following = list(set(following) - set(old_following))
+    if new_following:
+        messages.append("➡️ Подписался:\n" + "\n".join(new_following))
+
+    # от кого отписался
+    lost_following = list(set(old_following) - set(following))
+    if lost_following:
+        messages.append("⬅️ Отписался от:\n" + "\n".join(lost_following))
+
+    # отправка
     if messages:
-        send_telegram("\n\n".join(messages))
-    else:
-        send_telegram("ℹ️ Проверка выполнена, изменений нет.")
+        text = f"📊 Отчет Instagram {datetime.now().strftime('%d.%m %H:%M')}\n\n"
+        text += "\n\n".join(messages)
+        send_telegram(text)
 
-    save_data(FOLLOWING_FILE, current_following)
-    save_data(FOLLOWERS_FILE, current_followers)
+    # сохранение истории
+    save_file(FOLLOWERS_FILE, followers)
+    save_file(FOLLOWING_FILE, following)
+
 
 if __name__ == "__main__":
     main()

@@ -1,24 +1,37 @@
-name: Instagram Followers Tracker
+name: Instagram Monitor
 
 on:
   schedule:
-    - cron: '0 0 * * *'   # каждый день в 00:00 UTC
+    - cron: '0 9 * * *'
   workflow_dispatch:
 
 jobs:
-  run-script:
+  run:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
-      - name: Install dependencies
+          python-version: '3.11'
+
+      - name: Install requests
         run: pip install requests
-      - name: Run Tracker
+
+      - name: Run script
         env:
+          INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
-        run: python script.py
+        run: python instagram_monitor.py
+
+      - name: Commit history files
+        run: |
+          git config --global user.name "bot"
+          git config --global user.email "bot@github.com"
+          git add followers.json following.json
+          git commit -m "update history" || echo "no changes"
+          git push

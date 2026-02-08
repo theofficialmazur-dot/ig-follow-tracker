@@ -78,4 +78,8 @@ def main():
     save_posts(current_posts)
 
 if __name__ == "__main__":
+    main() 
+
+if __name__ == "__main__":
+    send_telegram("✅ Тест Telegram работает")
     main()

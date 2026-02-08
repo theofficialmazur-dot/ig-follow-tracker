@@ -4,9 +4,9 @@ import os
 from datetime import datetime
 
 # --- настройки ---
-INSTAGRAM_USER_ID = os.getenv("1546006357")
-TELEGRAM_TOKEN = os.getenv("8217935040:AAEHAORrnUsJyTgQrCVHevru6ZVwOz2nIxs")
-CHAT_ID = os.getenv("8450180980")
+INSTAGRAM_USER_ID = os.getenv("INSTAGRAM_USER_ID")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
 
 FOLLOWERS_FILE = "followers.json"
 FOLLOWING_FILE = "following.json"

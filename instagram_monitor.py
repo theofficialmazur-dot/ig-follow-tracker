@@ -1,10 +1,11 @@
-import requests
-import json
+from instagrapi import Client
 import os
-from datetime import datetime
+import json
 
-# --- настройки ---
-INSTAGRAM_USER_ID = os.getenv("INSTAGRAM_USER_ID")
+TARGET_USERNAME = "_inna__ta"
+
+IG_USERNAME = os.getenv("IG_USERNAME")
+IG_PASSWORD = os.getenv("IG_PASSWORD")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
@@ -12,83 +13,68 @@ FOLLOWERS_FILE = "followers.json"
 FOLLOWING_FILE = "following.json"
 
 
-# --- telegram ---
 def send_telegram(message):
+    import requests
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     requests.post(url, data={"chat_id": CHAT_ID, "text": message})
 
 
-# --- instagram ---
-def get_followers(user_id):
-    url = f"https://i.instagram.com/api/v1/friendships/{user_id}/followers/"
-    headers = {"User-Agent": "Instagram 155.0.0.37.107"}
-    r = requests.get(url, headers=headers)
-    if r.status_code != 200:
+def load_data(filename):
+    if not os.path.exists(filename):
         return []
-    return [u["username"] for u in r.json().get("users", [])]
-
-
-def get_following(user_id):
-    url = f"https://i.instagram.com/api/v1/friendships/{user_id}/following/"
-    headers = {"User-Agent": "Instagram 155.0.0.37.107"}
-    r = requests.get(url, headers=headers)
-    if r.status_code != 200:
-        return []
-    return [u["username"] for u in r.json().get("users", [])]
-
-
-# --- файлы ---
-def load_file(path):
-    if not os.path.exists(path):
-        return []
-    with open(path, "r") as f:
+    with open(filename, "r") as f:
         return json.load(f)
 
 
-def save_file(path, data):
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
+def save_data(filename, data):
+    with open(filename, "w") as f:
+        json.dump(data, f)
 
 
-# --- логика ---
 def main():
-    old_followers = load_file(FOLLOWERS_FILE)
-    old_following = load_file(FOLLOWING_FILE)
+    cl = Client()
 
-    followers = get_followers(INSTAGRAM_USER_ID)
-    following = get_following(INSTAGRAM_USER_ID)
+    # логин
+    cl.login(IG_USERNAME, IG_PASSWORD)
+
+    user_id = cl.user_id_from_username(TARGET_USERNAME)
+
+    followers = cl.user_followers(user_id)
+    following = cl.user_following(user_id)
+
+    current_followers = [u.username for u in followers.values()]
+    current_following = [u.username for u in following.values()]
+
+    old_followers = load_data(FOLLOWERS_FILE)
+    old_following = load_data(FOLLOWING_FILE)
+
+    new_followers = list(set(current_followers) - set(old_followers))
+    lost_followers = list(set(old_followers) - set(current_followers))
+
+    new_following = list(set(current_following) - set(old_following))
+    lost_following = list(set(old_following) - set(current_following))
 
     messages = []
 
-    # новые подписчики
-    new_followers = list(set(followers) - set(old_followers))
     if new_followers:
-        messages.append("🟢 Новые подписчики:\n" + "\n".join(new_followers))
+        messages.append("🟢 Подписались:\n" + "\n".join(new_followers))
 
-    # отписались
-    lost_followers = list(set(old_followers) - set(followers))
     if lost_followers:
         messages.append("🔴 Отписались:\n" + "\n".join(lost_followers))
 
-    # на кого подписался
-    new_following = list(set(following) - set(old_following))
     if new_following:
-        messages.append("➡️ Подписался:\n" + "\n".join(new_following))
+        messages.append("📌 Цель подписалась:\n" + "\n".join(new_following))
 
-    # от кого отписался
-    lost_following = list(set(old_following) - set(following))
     if lost_following:
-        messages.append("⬅️ Отписался от:\n" + "\n".join(lost_following))
+        messages.append("❌ Цель отписалась:\n" + "\n".join(lost_following))
 
-    # отправка
     if messages:
-        text = f"📊 Отчет Instagram {datetime.now().strftime('%d.%m %H:%M')}\n\n"
-        text += "\n\n".join(messages)
-        send_telegram(text)
+        send_telegram("\n\n".join(messages))
+    else:
+        send_telegram("Изменений нет")
 
-    # сохранение истории
-    save_file(FOLLOWERS_FILE, followers)
-    save_file(FOLLOWING_FILE, following)
+    save_data(FOLLOWERS_FILE, current_followers)
+    save_data(FOLLOWING_FILE, current_following)
 
 
 if __name__ == "__main__":

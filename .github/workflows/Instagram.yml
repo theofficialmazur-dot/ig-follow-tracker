@@ -1,4 +1,4 @@
-name: Instagram Monitor
+name: IG Monitor
 
 on:
   schedule:
@@ -10,28 +10,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Setup Python
+      - name: Install Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.10'
 
-      - name: Install requests
-        run: pip install requests
+      - name: Install libs
+        run: pip install instagrapi requests
 
       - name: Run script
         env:
-          INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+          IG_USERNAME: ${{ secrets.IG_USERNAME }}
+          IG_PASSWORD: ${{ secrets.IG_PASSWORD }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
         run: python instagram_monitor.py
-
-      - name: Commit history files
-        run: |
-          git config --global user.name "bot"
-          git config --global user.email "bot@github.com"
-          git add followers.json following.json
-          git commit -m "update history" || echo "no changes"
-          git push
